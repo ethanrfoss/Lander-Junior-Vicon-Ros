@@ -1,5 +1,5 @@
 /**
- * servo.cpp
+ * ESC.cpp
  *
  * @author    Ethan Foss
  * @date       09/26/2023
@@ -26,6 +26,9 @@ extern "C"
 //#include <std_msgs/Int32.h>
 #include <msgs/ActuatorCommands.h>
 
+//Services
+#include <std_srvs/SetBool.h>
+
 class ESC
 {
 public:
@@ -50,51 +53,66 @@ public:
             exit(1);
         }
 
-        // Check Battery Power
-        if(rc_adc_init())
-        {
-            std::cout << "Failed to Initialize ADC for ESCs" << std::endl;
-            exit(1);
-        }
-        if(rc_adc_batt()<6.0)
-        {
-            std::cout << "Battery Power Insufficient to Drive ESCs" << std::endl;
-            exit(1);
-        }
-        rc_adc_cleanup();
-
-        //initialize PRU
-        if(rc_servo_init())
-        {
-            std::cout << "Failed to Intialize ESC" << std::endl;
-            exit(1);
-        }
-        if(rc_servo_set_esc_range(RC_ESC_DEFAULT_MIN_US,RC_ESC_DEFAULT_MAX_US))
-        {
-            std::cout << "Failed to Intialize ESC" << std::endl;
-            exit(1);
-        }
-
-        // Power Rail
-        std::cout << "Powering Servo Rail" << std::endl;
-        rc_servo_power_rail_en(0);
-        enabled = true;
-
-        // Sleep 2 Seconds
-        sleep(2);
-
         // Create Subscriber
         std::string esc_sub_name;
         if (nh->getParam("~topics/esc",esc_sub_name))
         {
-            std::cout << "Failed to get Servo Sub Name" << std::endl;
+            std::cout << "Failed to get ESC Sub Name" << std::endl;
             exit(1);
         }
-        servo_cmd_sub_ = nh->subscribe(esc_sub_name,10,&ESC::subscriberCallback,this);
+        actuator_cmd_sub_ = nh->subscribe(esc_sub_name,10,&ESC::subscriberCallback,this);
+
+        // Create Service Listener
+        std::string esc_enable_service_name;
+        if (nh->getParam("~services/EnableESC",esc_enable_service_name))
+        {
+            std::cout << "Failed to get ESC Sub Name" << std::endl;
+            exit(1);
+        }
+        disable_esc_service = nh->advertiseService(esc_enable_service_name,&ESC::handleEnableService,this);
+
+        // Create Service Listener
+        std::string esc_disable_service_name;
+        if (nh->getParam("~services/DisableESC",esc_disable_service_name))
+        {
+            std::cout << "Failed to get ESC Sub Name" << std::endl;
+            exit(1);
+        }
+        enable_esc_service = nh->advertiseService(esc_disable_service_name,&ESC::handleDisableService,this);
 
         // Create Timer for Servo
-        timer_ = nh->createTimer(ros::Duration(1.0/SERVO_FREQUENCY),&ESC::timerCallback,this);
+        timer_ = nh->createTimer(ros::Duration(1.0/ESC_FREQUENCY),&ESC::timerCallback,this);
 
+    }
+
+    bool handleEnableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    {
+        if(req.data)
+        {
+            res.data = enableESCs()
+            return res.data
+        }
+        else
+        {
+            res.data = false;
+            return false;
+        }
+        
+    }
+
+    bool handleDisableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    {
+        if(req.data)
+        {
+            res.data = disableESCs()
+            return res.data
+        }
+        else
+        {
+            res.data = false;
+            return false;
+        }
+        
     }
 
 private:
@@ -106,7 +124,77 @@ private:
     bool enabled;
 
     ros::Timer timer_;
-    ros::Subscriber servo_cmd_sub_;
+    ros::Subscriber actuator_cmd_sub_;
+    ros::ServiceServer enable_esc_service;
+    ros::ServiceServer disable_esc_service;
+
+    bool enableESCs()
+    {
+
+        if(enabled)
+        {
+            std::cout << "ESCs already enabled!" << std::endl;
+            return false;
+        }
+
+        // Check Battery Power
+        if(rc_adc_init())
+        {
+            std::cout << "Failed to Initialize ADC for ESCs" << std::endl;
+            exit(1);
+            return false;
+        }
+        if(rc_adc_batt()<6.0)
+        {
+            std::cout << "Battery Power Insufficient to Drive ESCs" << std::endl;
+            exit(1);
+            return false;
+        }
+        rc_adc_cleanup();
+
+        //initialize PRU
+        if(rc_servo_init())
+        {
+            std::cout << "Failed to Intialize ESC" << std::endl;
+            exit(1);
+            return false;
+        }
+        if(rc_servo_set_esc_range(RC_ESC_DEFAULT_MIN_US,RC_ESC_DEFAULT_MAX_US))
+        {
+            std::cout << "Failed to Intialize ESC" << std::endl;
+            exit(1);
+            return false;
+        }
+
+        // Power Rail
+        std::cout << "Powering Servo Rail" << std::endl;
+        rc_servo_power_rail_en(0);
+
+        // Sleep 2 Seconds
+        ros::Duration(2).sleep();
+
+        // Enable:
+        enabled = true;
+        return true;
+    }
+
+    bool disableESCs()
+    {
+        if(!enabled)
+        {
+            std::cout << "ESCs already disabled!" << std::endl;
+            return false;
+        }
+
+        enabled = false;
+
+        rc_servo_send_esc_pulse_normalized(escChannel1,ESC_MIN_THROTTLE);
+        rc_servo_send_esc_pulse_normalized(escChannel2,ESC_MIN_THROTTLE);
+        rc_servo_power_rail_en(0);
+        rc_servo_cleanup();
+        return true;
+
+    }
 
     void timerCallback(const ros::TimerEvent& event)
     {
@@ -132,10 +220,9 @@ private:
 
 int main(int argc, char *argv[])
 {
-    std::cout << "Hi" << std::endl;
-    ros::init(argc,argv,"servo_node");
+    ros::init(argc,argv,"esc_node");
     ros::NodeHandle nh;
-    Servo servo = Servo(&nh);
+    ESC esc = ESC(&nh);
     ros::spin();
     ros::shutdown();
     return 0;

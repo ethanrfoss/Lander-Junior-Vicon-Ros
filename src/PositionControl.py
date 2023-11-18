@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 
-from msgs import PositionalState, ReferencePositionalState, Force
+from msgs import PositionalState, Force
 from utils import normalize
 
 class PositionalControl:
@@ -25,7 +25,7 @@ class PositionalControl:
 
         # Reference Position Subscriber:
         reference_positional_state_topic = rospy.get_param("~topics/reference_positional_state")
-        self.reference_positional_state_sub = rospy.Subscriber(reference_positional_state_topic,ReferencePositionalState,self.callback_reference_positional_state)
+        self.reference_positional_state_sub = rospy.Subscriber(reference_positional_state_topic,PositionalState,self.callback_reference_positional_state)
 
         # Feedforward Force Subscriber:
         feedforward_force_topic = rospy.get_param("~topics/feedforward_force")

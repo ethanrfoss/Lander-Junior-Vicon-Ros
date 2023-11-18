@@ -25,6 +25,9 @@ extern "C"
 //Msgs
 #include <std_msgs/Int32.h>
 
+//Services
+#include <std_srvs/SetBool.h>
+
 class Servo
 {
 public:
@@ -44,10 +47,100 @@ public:
         servoPos = 0;
 
         // Set Servo Channel
-        if (nh->getParam("servo_channel",servoChannel))
+        if (nh->getParam("servo_channel_1",servoChannel1))
         {
-            std::cout << "Failed to get Servo Channel" << std::endl;
+            std::cout << "Failed to get Servo Channel 1" << std::endl;
             exit(1);
+        }
+        if (nh->getParam("servo_channel_2",servoChannel2))
+        {
+            std::cout << "Failed to get Servo Channel 2" << std::endl;
+            exit(1);
+        }
+
+        // Create Subscriber
+        std::string servo_sub_name;
+        if (nh->getParam("~topics/servo",servo_sub_name))
+        {
+            std::cout << "Failed to get Servo Sub Name" << std::endl;
+            exit(1);
+        }
+        actuator_cmd_sub_ = nh->subscribe(esc_sub_name,10,&ESC::subscriberCallback,this);
+
+        // Create Service Listener
+        std::string servo_enable_service_name;
+        if (nh->getParam("~services/EnableServo",servo_enable_service_name))
+        {
+            std::cout << "Failed to get Servo Service Name" << std::endl;
+            exit(1);
+        }
+        enable_servo_service = nh->advertiseService(servo_enable_service_name,&Servo::handleEnableService,this);
+
+        // Create Service Listener
+        std::string servo_disable_service_name;
+        if (nh->getParam("~services/DisableServo",servo_disable_service_name))
+        {
+            std::cout << "Failed to get Servo Service Name" << std::endl;
+            exit(1);
+        }
+        disable_servo_service = nh->advertiseService(servo_disable_service_name,&Servo::handleDisableService,this);
+
+
+        // Create Timer for Servo
+        timer_ = nh->createTimer(ros::Duration(1.0/SERVO_FREQUENCY),&Servo::timerCallback,this);
+
+    }
+
+    bool handleEnableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    {
+        if(req.data)
+        {
+            res.data = enableServos()
+            return res.data
+        }
+        else
+        {
+            res.data = false;
+            return false;
+        }
+    }
+
+    bool handleDisableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    {
+        if(req.data)
+        {
+            res.data = disableServos()
+            return res.data
+        }
+        else
+        {
+            res.data = false;
+            return false;
+        }
+        
+    }
+
+private:
+
+    int servoChannel1;
+    double servoPos1;
+    double servoCommand1;
+    int servoChannel2;
+    double servoPos2;
+    double servoCommand2;
+    bool enabled;
+
+    ros::Timer timer_;
+    ros::Subscriber actuator_cmd_sub_;
+    ros::ServiceServer enable_servo_service;
+    ros::ServiceServer disable_servo_service;
+
+    void enableServos()
+    {
+        if(enabled)
+        {
+            std::cout << "Servos already enabled!" << std::endl;
+            return false;
         }
 
         // Check Battery Power
@@ -72,85 +165,105 @@ public:
 
         // Power Rail
         std::cout << "Powering Servo Rail" << std::endl;
-        rc_servo_power_rail_en(1);
-        enabled = true;
+        rc_servo_power_rail_en(0);
 
         // Sleep 2 Seconds
-        sleep(2);
-
-        // Create Subscriber
-        std::string servo_sub_name;
-        if (nh->getParam("~topics/servo",servo_sub_name))
-        {
-            std::cout << "Failed to get Servo Sub Name" << std::endl;
-            exit(1);
-        }
-        servo_cmd_sub_ = nh->subscribe(servo_sub_name,10,&Servo::subscriberCallback,this);
-
-        // Create Timer for Servo
-        timer_ = nh->createTimer(ros::Duration(1.0/SERVO_FREQUENCY),&Servo::timerCallback,this);
-
+        ros::Duration(2).sleep();
+        
+        // Enable:
+        enabled = true;
+        return true;
     }
 
-private:
+    bool disableServos()
+    {
+        if(!enabled)
+        {
+            std::cout << "Servos already disabled!" << std::endl;
+            return false;
+        }
 
-    int servoChannel;
-    double servoPos;
-    double servoCommand;
-    bool enabled;
+        enabled = false;
 
-    ros::Timer timer_;
-    ros::Subscriber servo_cmd_sub_;
+        rc_servo_power_rail_en(0);
+        rc_servo_cleanup();
+        return true;
+
+    }
 
     void timerCallback(const ros::TimerEvent& event)
     {
         if(enabled)
         {
-            if(abs(servoPos-servoCommand) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
+            // Servo 1
+            if(abs(servoPos1-servoCommand1) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
             {
-                servoPos = servoCommand;
+                servoPos1 = servoCommand1;
             }
-            else if(servoPos > servoCommand)
+            else if(servoPos1 > servoCommand1)
             {
-                servoPos-=SERVO_SPEED/SERVO_FREQUENCY;
+                servoPos1-=SERVO_SPEED/SERVO_FREQUENCY;
             }
             else
             {
-                servoPos+=SERVO_SPEED/SERVO_FREQUENCY;
+                servoPos1+=SERVO_SPEED/SERVO_FREQUENCY;
             }
 
-            if(servoPos>SERVO_MAX_ANGLE)
+            if(servoPos1>SERVO_MAX_ANGLE)
             {
-                servoPos = SERVO_MAX_ANGLE;
+                servoPos1 = SERVO_MAX_ANGLE;
             }
-            if(servoPos<-SERVO_MAX_ANGLE)
+            if(servoPos1<-SERVO_MAX_ANGLE)
             {
-                servoPos = -SERVO_MAX_ANGLE;
+                servoPos1 = -SERVO_MAX_ANGLE;
             }
 
-            if(rc_servo_send_pulse_normalized(servoChannel,servoPos)==-1)
+            // Servo 2
+            if(abs(servoPos2-servoCommand2) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
+            {
+                servoPos2 = servoCommand2;
+            }
+            else if(servoPos2 > servoCommand2)
+            {
+                servoPos2-=SERVO_SPEED/SERVO_FREQUENCY;
+            }
+            else
+            {
+                servoPos2+=SERVO_SPEED/SERVO_FREQUENCY;
+            }
+
+            if(servoPos2>SERVO_MAX_ANGLE)
+            {
+                servoPos2 = SERVO_MAX_ANGLE;
+            }
+            if(servoPos2<-SERVO_MAX_ANGLE)
+            {
+                servoPos2 = -SERVO_MAX_ANGLE;
+            }
+
+            if(rc_servo_send_pulse_normalized(servoChannel1,servoPos1)==-1)
+            {
+                std::cout << "Failed to set Servo Position" << std::endl;
+                exit(1);
+            }
+
+            if(rc_servo_send_pulse_normalized(servoChannel2,servoPos2)==-1)
             {
                 std::cout << "Failed to set Servo Position" << std::endl;
                 exit(1);
             }
         }
-        else
-        {
-            rc_servo_power_rail_en(0);
-            rc_servo_cleanup();
-            exit(1);
-        }
     }
 
-    void subscriberCallback(const std_msgs::Int32& servoMsg)
+    void subscriberCallback(const msgs::ActuatorCommands& actuator_commands_msg)
     {
-        servoCommand = servoMsg.data;
+        servoCommand1 = actuator_commands_msg.alpha;
+        servoCommand2 = actuator_commands_msg.beta;
     }
 };
 
 int main(int argc, char *argv[])
 {
-    std::cout << "Hi" << std::endl;
     ros::init(argc,argv,"servo_node");
     ros::NodeHandle nh;
     Servo servo = Servo(&nh);
