@@ -21,11 +21,11 @@ class TakeoffServer():
         self.servo_disable_service = rospy.get_param("~services/DisableServo")
 
         # Takeoff Service:
-        takeoff_service = rospy.get_param("~services/takeoff")
+        takeoff_service = rospy.get_param("~services/Takeoff")
         rospy.Service(takeoff_service,SetBool,self.takeoff_callback)
 
         # Land Service:
-        land_service = rospy.get_param("~services/land")
+        land_service = rospy.get_param("~services/Land")
         rospy.Service(land_service,SetBool,self.land_callback)
 
         # State Estimate Subscriber:
@@ -112,18 +112,6 @@ class TakeoffServer():
         feedforward_force_msg.F2 = 0
         feedforward_force_msg.F3 = 0
         self.feedforward_force_pub.publish(feedforward_force_msg)
-        
-        # Call Serice to Disable Servos
-        try:
-            rospy.wait_for_service(self.servo_disable_service)
-            servo_service = rospy.ServiceProxy(self.servo_disable_service,SetBool)
-            servo_disabled = servo_service()
-            rospy.loginfo("Servo Service Called")
-        except:
-            rospy.logerr(f"Servo Servive Failed")
-
-        # Sleep for 2 seconds
-        rospy.sleep(2) 
 
         # Call Service to Disable ESCs
         try:
@@ -133,6 +121,18 @@ class TakeoffServer():
             rospy.loginfo("ESC Service Called")
         except:
             rospy.logerr(f"ESC Servive Failed")
+
+        # Sleep for 2 seconds
+        rospy.sleep(2) 
+
+        # Call Serice to Disable Servos
+        try:
+            rospy.wait_for_service(self.servo_disable_service)
+            servo_service = rospy.ServiceProxy(self.servo_disable_service,SetBool)
+            servo_disabled = servo_service()
+            rospy.loginfo("Servo Service Called")
+        except:
+            rospy.logerr(f"Servo Servive Failed")
 
         return servo_disabled and esc_disabled
 
