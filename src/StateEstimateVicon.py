@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 
-from msgs import AttitudeState, PositionalState
+from msg import AttitudeState, PositionalState
 from geometry_msgs import TransformStamped
 
 class ViconStateEstimator:

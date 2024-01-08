@@ -2,7 +2,7 @@
 
 import rospy
 from std_srvs.srv import SetBool
-from msgs import PositionalState, Force
+from msg import PositionalState, Force
 
 class TakeoffServer():
 

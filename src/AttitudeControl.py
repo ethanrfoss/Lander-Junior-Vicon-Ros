@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 
-from msgs import AttitudeState, Force, ActuatorCommands
+from msg import AttitudeState, Force, ActuatorCommands
 from utils import clip, norm, normalize, TL2B
 
 class AttitudeControl:
@@ -42,7 +42,7 @@ class AttitudeControl:
         self.MaxThrustDifferential = rospy.get_param("/MaxThrustDifferential")
 
         self.q = np.array([1,0,0,0])
-        self.F = np.array([0 0 0])
+        self.F = np.array([0,0,0])
 
     def callback_attitude_state(self,attitude_state_msg):
         self.q[0] = attitude_state_msg.q0

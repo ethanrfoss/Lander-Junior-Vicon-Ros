@@ -23,10 +23,12 @@ extern "C"
 #include "ros/ros.h" // ROS
 
 //Msgs
-#include <std_msgs/Int32.h>
+//#include <std_msgs/Int32.h>
+#include <lander_junior_ros/ActuatorCommands.h>
 
 //Services
 #include <std_srvs/SetBool.h>
+
 
 class Servo
 {
@@ -44,7 +46,8 @@ public:
     Servo(ros::NodeHandle *nh)
     {
         // Initialize Servo Position
-        servoPos = 0;
+        servoPos1 = 0;
+        servoPos2 = 0;
 
         // Set Servo Channel
         if (nh->getParam("servo_channel_1",servoChannel1))
@@ -60,12 +63,12 @@ public:
 
         // Create Subscriber
         std::string servo_sub_name;
-        if (nh->getParam("~topics/servo",servo_sub_name))
+        if (nh->getParam("~topics/actuator_commands",servo_sub_name))
         {
             std::cout << "Failed to get Servo Sub Name" << std::endl;
             exit(1);
         }
-        actuator_cmd_sub_ = nh->subscribe(esc_sub_name,10,&ESC::subscriberCallback,this);
+        actuator_cmd_sub_ = nh->subscribe(servo_sub_name,10,&Servo::subscriberCallback,this);
 
         // Create Service Listener
         std::string servo_enable_service_name;
@@ -95,28 +98,24 @@ public:
     {
         if(req.data)
         {
-            res.data = enableServos()
-            return res.data
+            res.success = enableServos();
+            res.message = "Servos Successfully Enabled";
+            return res.success;
         }
-        else
-        {
-            res.data = false;
-            return false;
-        }
+        res.success = false;
+        return false;
     }
 
     bool handleDisableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
     {
         if(req.data)
         {
-            res.data = disableServos()
-            return res.data
+            res.success = disableServos();
+            res.message = "Servos Successfully Disabled";
+            return res.success;
         }
-        else
-        {
-            res.data = false;
-            return false;
-        }
+        res.success = false;
+        return false;
         
     }
 
@@ -135,7 +134,7 @@ private:
     ros::ServiceServer enable_servo_service;
     ros::ServiceServer disable_servo_service;
 
-    void enableServos()
+    bool enableServos()
     {
         if(enabled)
         {
@@ -255,7 +254,7 @@ private:
         }
     }
 
-    void subscriberCallback(const msgs::ActuatorCommands& actuator_commands_msg)
+    void subscriberCallback(const lander_junior_ros::ActuatorCommands& actuator_commands_msg)
     {
         servoCommand1 = actuator_commands_msg.alpha;
         servoCommand2 = actuator_commands_msg.beta;

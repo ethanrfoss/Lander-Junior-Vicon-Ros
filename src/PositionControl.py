@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 
-from msgs import PositionalState, Force
+from msg import PositionalState, Force
 from utils import normalize
 
 class PositionalControl:
@@ -36,7 +36,7 @@ class PositionalControl:
         self.reference_force_pub = rospy.Publisher(reference_force_topic,Force)
 
         # Positional Control Parameters:
-        self.FeedbackGainMatrix = np.array(rospy.get_param("/FeedbackGainMatrix"))
+        self.FeedbackGainMatrix = np.matrix(rospy.get_param("/FeedbackGainMatrix"))
         self.L = rospy.get_param("/GimbalDistance")
 
         # Initialize Control Variables

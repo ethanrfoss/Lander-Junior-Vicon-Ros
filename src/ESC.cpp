@@ -24,7 +24,7 @@ extern "C"
 
 //Msgs
 //#include <std_msgs/Int32.h>
-#include <msgs/ActuatorCommands.h>
+#include <lander_junior_ros/ActuatorCommands.h>
 
 //Services
 #include <std_srvs/SetBool.h>
@@ -37,6 +37,7 @@ public:
     const double ESC_MAX_THROTTLE = 1.0; // Max Servo Angle [deg]
     const double ESC_MIN_THROTTLE = -.1; // Servo Speed [deg/s]
     const double THRUST_TO_THROTTLE = .0599628; // Thrust to Throttle [1/]
+    const double ESC_FREQUENCY = 100; // ESC Update Frequency [Hz]
 
     ESC(ros::NodeHandle *nh)
     {
@@ -55,7 +56,7 @@ public:
 
         // Create Subscriber
         std::string esc_sub_name;
-        if (nh->getParam("~topics/esc",esc_sub_name))
+        if (nh->getParam("~topics/actuator_commands",esc_sub_name))
         {
             std::cout << "Failed to get ESC Sub Name" << std::endl;
             exit(1);
@@ -89,14 +90,12 @@ public:
     {
         if(req.data)
         {
-            res.data = enableESCs()
-            return res.data
+            res.success = enableESCs();
+            res.message = "Servos Successfully Enabled";
+            return res.success;
         }
-        else
-        {
-            res.data = false;
-            return false;
-        }
+        res.success = false;
+        return false;
         
     }
 
@@ -104,14 +103,12 @@ public:
     {
         if(req.data)
         {
-            res.data = disableESCs()
-            return res.data
+            res.success = disableESCs();
+            res.message = "Servos Successfully Disabled";
+            return res.success;
         }
-        else
-        {
-            res.data = false;
-            return false;
-        }
+        res.success = false;
+        return false;
         
     }
 
@@ -200,8 +197,8 @@ private:
     {
         if(enabled)
         {
-            rc_servo_send_esc_pusle_normalized(escChannel1,THRUST_TO_THROTTLE*T1)
-            rc_servo_send_esc_pusle_normalized(escChannel2,THRUST_TO_THROTTLE*T2)
+            rc_servo_send_esc_pulse_normalized(escChannel1,THRUST_TO_THROTTLE*T1);
+            rc_servo_send_esc_pulse_normalized(escChannel2,THRUST_TO_THROTTLE*T2);
         }
         //else
         //{
@@ -211,7 +208,7 @@ private:
         //}
     }
 
-    void subscriberCallback(const msgs::ActuatorCommands& actuator_commands_msg)
+    void subscriberCallback(const lander_junior_ros::ActuatorCommands& actuator_commands_msg)
     {
         T1 = actuator_commands_msg.T1;
         T2 = actuator_commands_msg.T2;
