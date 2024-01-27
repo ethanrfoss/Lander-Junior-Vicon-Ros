@@ -8,7 +8,7 @@
   <arg name="positional_state_topic" default="positional_state" />
   <arg name="reference_positional_state_topic" default="reference_positional_state" />
   <arg name="feedforward_force_topic" default="feedforward_force" />
-  <arg name="vicon_transform_topic" default="vicon/robot_1/robot_1" />
+  <arg name="vicon_transform_topic" default="/vicon/robot_1/robot_1" />
 
   <!-- Services -->
   <arg name="esc_enable_service" default="EnableESC" />
@@ -27,14 +27,14 @@
   <param name="PropellerThrustCoefficient" value=".0000075735" />
   <param name="PropellerMomentCoefficient" value=".000000067033" />
   <param name="MaxThrustDifferential" value=".4905" />
-  <param name="AttitudeControlRate" value="100" />
+  <param name="AttitudeControlRate" value="50" />
 
   <!-- Positional Control Parameters -->
   <param name="FeedbackGainMatrix" value="[[-3.1623,0.0,0.0,-3.0884,0.0,0.0],[0.0,-3.1623,0.0,0.0,-3.0884,0.0],[0.0,0.0,-3.1623,0.0,0.0,-3.0884]]" />
   <param name="MaxPointingAngle" value=".4363" />
   <param name="MaxThrust" value="16.677" />
   <param name="MinThrust" value="9.81" />
-  <param name="PositionalControlRate" value="100" />
+  <param name="PositionalControlRate" value="50" />
 
   <!-- Propeller Parameters -->
   <param name="esc_channel_1" value="3" />
@@ -49,7 +49,7 @@
   <param name="HoverFeedforwardForce" value="13.2435" />
 
   <!-- Estimation Parameters-->
-  <param name="ViconEstimatorRate" value="100" />
+  <param name="ViconEstimatorRate" value="50" />
 
   <!--
   <include file="$(find erl_quadrotor_vicon)/launch/erl_vicon.launch" />
@@ -64,7 +64,7 @@
     <param name="topics/positional_state" value="$(arg positional_state_topic)" />
   </node>
 
-  <node name="AttitudeController"
+  <node name="attitude_controller_node"
         pkg="lander_junior_ros"
         type="AttitudeControl.py"
         output="screen">
@@ -82,27 +82,38 @@
     <param name="topics/feedforward_force" value="$(arg feedforward_force_topic)" />
     <param name="topics/lander_reference_force" value="$(arg lander_reference_force_topic)" />
   </node>
-
+<!--
   <node name="servo_node"
         pkg="lander_junior_ros"
         type="servo_node"
-        output="screen"
-        launch-prefix="echo temppwd | sudo -S">
+        output="screen">
     <param name="topics/actuator_commands" value="$(arg actuator_commands_topic)" />
     <param name="services/EnableServo" value="$(arg servo_enable_service)" />
     <param name="services/DisableServo" value="$(arg servo_disable_service)" />
   </node>
+  -->
+  <!--
+  <group ns="servo_node" machine_name="localhost">
+    <param name="topics/actuator_commands" value="$(arg actuator_commands_topic)" />
+    <param name="services/EnableServo" value="$(arg servo_enable_service)" />
+    <param name="services/DisableServo" value="$(arg servo_disable_service)" />
+    <node name="servo_node" pkg="lander_junior_ros" type="servo_node" output="screen" />
+  </group>
+  -->
 
+<!--launch-prefix="echo temppwd | sudo -S"> -->
+<!--
   <node name="esc_node"
         pkg="lander_junior_ros"
         type="esc_node"
-        output="screen"
-        launch-prefix="echo temppwd | sudo -S">
+        output="screen">
     <param name="topics/actuator_commands" value="$(arg actuator_commands_topic)" />
     <param name="services/EnableESC" value="$(arg esc_enable_service)" />
     <param name="services/DisableESC" value="$(arg esc_disable_service)" />
   </node>
+  -->
 
+<!--
   <node name="takeoff_server_node"
         pkg="lander_junior_ros"
         type="TakeoffServer.py"
@@ -117,7 +128,7 @@
     <param name="services/Takeoff" value="$(arg takeoff_service)" />
     <param name="services/Land" value="$(arg land_service)" />
   </node>
-
+-->
 </launch>
 
 

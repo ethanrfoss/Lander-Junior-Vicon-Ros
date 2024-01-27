@@ -14,12 +14,12 @@ def norm(v,n=2):
     return np.power(np.sum(np.power(v,n)),1./n)
 
 def normalize(v):
-    vmag = np.norm(v,2)
+    vmag = np.linalg.norm(v,2)
     if vmag == 0:
         return v
     else:
         return v/vmag
     
 def clip(val,min,max):
-    np.minimum(max,np.maximum(min,val))
+    return np.minimum(max,np.maximum(min,val))
     

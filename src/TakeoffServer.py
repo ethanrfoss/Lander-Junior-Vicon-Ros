@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import rospy
-from std_srvs.srv import SetBool
-from msg import PositionalState, Force
+from std_srvs.srv import Trigger, TriggerResponse
+from lander_junior_ros.msg  import PositionalState, Force
 
 class TakeoffServer():
 
@@ -22,11 +22,11 @@ class TakeoffServer():
 
         # Takeoff Service:
         takeoff_service = rospy.get_param("~services/Takeoff")
-        rospy.Service(takeoff_service,SetBool,self.takeoff_callback)
+        rospy.Service(takeoff_service,Trigger,self.takeoff_callback)
 
         # Land Service:
         land_service = rospy.get_param("~services/Land")
-        rospy.Service(land_service,SetBool,self.land_callback)
+        rospy.Service(land_service,Trigger,self.land_callback)
 
         # State Estimate Subscriber:
         positional_state_topic = rospy.get_param("~topics/positional_state")
@@ -34,22 +34,29 @@ class TakeoffServer():
 
         # Reference Position Publisher:
         reference_positional_state_topic = rospy.get_param("~topics/reference_positional_state")
-        self.reference_positional_state_pub = rospy.Publisher(reference_positional_state_topic,PositionalState)
+        self.reference_positional_state_pub = rospy.Publisher(reference_positional_state_topic,PositionalState,queue_size=10)
 
         # Feedforward Force Subscriber:
         feedforward_force_topic = rospy.get_param("~topics/feedforward_force")
-        self.feedforward_force_pub = rospy.Publisher(feedforward_force_topic,Force)
+        self.feedforward_force_pub = rospy.Publisher(feedforward_force_topic,Force,queue_size=10)
 
         # Takeoff Parameters:
         self.hover_height = rospy.get_param("/HoverHeight")
         self.hover_reference_force = rospy.get_param("HoverFeedforwardForce")
+
+        self.PositionalStateEstimate[0] = 0
+        self.PositionalStateEstimate[1] = 0
+        self.PositionalStateEstimate[2] = 0
+        self.PositionalStateEstimate[3] = 0
+        self.PositionalStateEstimate[4] = 0
+        self.PositionalStateEstimate[5] = 0
 
     def takeoff_callback(self,req):
         
         # Call Serice to Activate Servos
         try:
             rospy.wait_for_service(self.servo_enable_service)
-            servo_service = rospy.ServiceProxy(self.servo_enable_service,SetBool)
+            servo_service = rospy.ServiceProxy(self.servo_enable_service,Trigger)
             servo_enabled = servo_service()
             rospy.loginfo("Servo Service Called")
         except:
@@ -61,7 +68,7 @@ class TakeoffServer():
         # Call Service to Activate ESCs
         try:
             rospy.wait_for_service(self.esc_enable_service)
-            esc_service = rospy.ServiceProxy(self.esc_enable_service,SetBool)
+            esc_service = rospy.ServiceProxy(self.esc_enable_service,Trigger)
             esc_enabled = esc_service()
             rospy.loginfo("ESC Service Called")
         except:
@@ -89,7 +96,7 @@ class TakeoffServer():
 
         self.ground_height = self.PositionalStateEstimate[2]
 
-        return servo_enabled and esc_enabled
+        return TriggerResponse(success=servo_enabled and esc_enabled,message="Takeoff Executed")
     
     def land_callback(self,req):
 
@@ -116,7 +123,7 @@ class TakeoffServer():
         # Call Service to Disable ESCs
         try:
             rospy.wait_for_service(self.esc_disable_service)
-            esc_service = rospy.ServiceProxy(self.esc_disable_service,SetBool)
+            esc_service = rospy.ServiceProxy(self.esc_disable_service,Trigger)
             esc_disabled = esc_service()
             rospy.loginfo("ESC Service Called")
         except:
@@ -128,13 +135,13 @@ class TakeoffServer():
         # Call Serice to Disable Servos
         try:
             rospy.wait_for_service(self.servo_disable_service)
-            servo_service = rospy.ServiceProxy(self.servo_disable_service,SetBool)
+            servo_service = rospy.ServiceProxy(self.servo_disable_service,Trigger)
             servo_disabled = servo_service()
             rospy.loginfo("Servo Service Called")
         except:
             rospy.logerr(f"Servo Servive Failed")
 
-        return servo_disabled and esc_disabled
+        return TriggerResponse(success=servo_disabled and esc_disabled,message="Landing Executed")
 
     def callback_positional_state(self,positional_state_msg):
         """

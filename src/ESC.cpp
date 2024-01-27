@@ -27,7 +27,7 @@ extern "C"
 #include <lander_junior_ros/ActuatorCommands.h>
 
 //Services
-#include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
 
 class ESC
 {
@@ -42,13 +42,19 @@ public:
     ESC(ros::NodeHandle *nh)
     {
 
+        // Private Node Handle
+        ros::NodeHandle private_nh("~");
+
+        // Set as disabled
+        enabled = false;
+
         // Set ESC Channels
-        if (nh->getParam("esc_channel_1",escChannel1))
+        if (!nh->getParam("esc_channel_1",escChannel1))
         {
             std::cout << "Failed to get ESC Channel 1" << std::endl;
             exit(1);
         }
-        if (nh->getParam("esc_channel_2",escChannel2))
+        if (!nh->getParam("esc_channel_2",escChannel2))
         {
             std::cout << "Failed to get ESC Channel 2" << std::endl;
             exit(1);
@@ -56,7 +62,7 @@ public:
 
         // Create Subscriber
         std::string esc_sub_name;
-        if (nh->getParam("~topics/actuator_commands",esc_sub_name))
+        if (!private_nh.getParam("topics/actuator_commands",esc_sub_name))
         {
             std::cout << "Failed to get ESC Sub Name" << std::endl;
             exit(1);
@@ -65,7 +71,7 @@ public:
 
         // Create Service Listener
         std::string esc_enable_service_name;
-        if (nh->getParam("~services/EnableESC",esc_enable_service_name))
+        if (!private_nh.getParam("services/EnableESC",esc_enable_service_name))
         {
             std::cout << "Failed to get ESC Sub Name" << std::endl;
             exit(1);
@@ -74,7 +80,7 @@ public:
 
         // Create Service Listener
         std::string esc_disable_service_name;
-        if (nh->getParam("~services/DisableESC",esc_disable_service_name))
+        if (!private_nh.getParam("services/DisableESC",esc_disable_service_name))
         {
             std::cout << "Failed to get ESC Sub Name" << std::endl;
             exit(1);
@@ -86,30 +92,20 @@ public:
 
     }
 
-    bool handleEnableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    bool handleEnableService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
     {
-        if(req.data)
-        {
-            res.success = enableESCs();
-            res.message = "Servos Successfully Enabled";
-            return res.success;
-        }
-        res.success = false;
-        return false;
+        res.success = enableESCs();
+        res.message = "ESCs Successfully Enabled";
+        return res.success;
         
     }
 
-    bool handleDisableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    bool handleDisableService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
     {
-        if(req.data)
-        {
-            res.success = disableESCs();
-            res.message = "Servos Successfully Disabled";
-            return res.success;
-        }
-        res.success = false;
-        return false;
-        
+        res.success = disableESCs();
+        res.message = "ESCs Successfully Disabled";
+        return res.success;
+               
     }
 
 private:
@@ -167,6 +163,16 @@ private:
         std::cout << "Powering Servo Rail" << std::endl;
         rc_servo_power_rail_en(0);
 
+        // Wakeup
+        ros::Rate rate(100);
+        ros::Time start_time = ros::Time::now();
+        while(ros::ok() && (ros::Time::now() -start_time).toSec() < 3.0)
+        {
+            rc_servo_send_esc_pulse_normalized(escChannel1,-.1);
+            rc_servo_send_esc_pulse_normalized(escChannel2,-.1);
+            rate.sleep();
+        }
+
         // Sleep 2 Seconds
         ros::Duration(2).sleep();
 
@@ -197,6 +203,7 @@ private:
     {
         if(enabled)
         {
+            std::cout << THRUST_TO_THROTTLE*T1 << std::endl;
             rc_servo_send_esc_pulse_normalized(escChannel1,THRUST_TO_THROTTLE*T1);
             rc_servo_send_esc_pulse_normalized(escChannel2,THRUST_TO_THROTTLE*T2);
         }
@@ -221,6 +228,5 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
     ESC esc = ESC(&nh);
     ros::spin();
-    ros::shutdown();
     return 0;
 }

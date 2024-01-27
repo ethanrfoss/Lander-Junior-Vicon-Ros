@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 
-from msg import AttitudeState, Force, ActuatorCommands
+from lander_junior_ros.msg import AttitudeState, Force, ActuatorCommands
 from utils import clip, norm, normalize, TL2B
 
 class AttitudeControl:
@@ -29,7 +29,7 @@ class AttitudeControl:
 
         # Actuator Commands Publisher:
         acuator_commands_topic = rospy.get_param("~topics/actuator_commands")
-        self.actuator_commands_pub = rospy.Publisher(acuator_commands_topic,ActuatorCommands)
+        self.actuator_commands_pub = rospy.Publisher(acuator_commands_topic,ActuatorCommands,queue_size=10)
 
         # Attitude Control Parameters:
         self.Kp = rospy.get_param("/AttitudeProportionalGain")
@@ -43,6 +43,7 @@ class AttitudeControl:
 
         self.q = np.array([1,0,0,0])
         self.F = np.array([0,0,0])
+        self.w= np.array([0,0,0])
 
     def callback_attitude_state(self,attitude_state_msg):
         self.q[0] = attitude_state_msg.q0
@@ -61,10 +62,10 @@ class AttitudeControl:
     def Controller(self):
         Fhat = np.matmul(TL2B(self.q),np.transpose(normalize(self.F)))
 
-        Mhat = normalize(np.cross(np.array([[0],[0],[1]]),Fhat))
-        ang = np.arccos(np.dot(np.array([[0],[0],[1]]),Fhat))
+        Mhat = np.transpose(normalize(np.cross(np.array([0,0,1]),Fhat)))
+        ang = np.arccos(np.dot(np.array([0,0,1]),Fhat))
 
-        self.Moment = self.Kp*ang*Mhat - np.array([[self.Kd*self.w[0]],[self.Kd*self.w[1]],[self.Kw3*self.w[2]]])
+        self.Moment = np.subtract(self.Kp*ang*Mhat , np.array([[self.Kd*self.w[0]],[self.Kd*self.w[1]],[self.Kw3*self.w[2]]]))
 
     def Actuators(self):
         Thrust = norm(self.F)
@@ -77,18 +78,18 @@ class AttitudeControl:
         else:
             F1 = -self.Moment[1][0]/(Thrust*self.L)
             F2 = self.Moment[0][0]/(Thrust*self.L)
-            ang = normalize(np.array([F1,F2]))
-            F1n = F1*np.maximum(ang,np.sin(self.MaxGimbalAngle))/np.maximum(ang,10^-6)
-            F2n = F2*np.maximum(ang,np.sin(self.MaxGimbalAngle))/np.maximum(ang,10^-6)
+            ang = np.linalg.norm(np.array([F1,F2]))
+            F1n = F1*np.maximum(ang,np.sin(self.MaxGimbalAngle))/np.maximum(ang,10**-6)
+            F2n = F2*np.maximum(ang,np.sin(self.MaxGimbalAngle))/np.maximum(ang,10**-6)
             self.beta = np.arcsin(F1n)
-            self.alpha = np.arcsin(-F2n/np.sqrt(1-F1n^2))   
+            self.alpha = np.arcsin(-F2n/np.sqrt(1-F1n**2))   
             Tdiff = clip(self.PropellerThrustCoefficient/self.PropellerMomentCoefficient*self.Moment[2][0],-self.MaxThrustDifferential,self.MaxThrustDifferential)
             self.T1 = (Thrust + Tdiff)/2
             self.T2 = (Thrust - Tdiff)/2
 
     def publish_actuator_commands(self):
 
-        actuator_commands_msg = ActuatorCommands
+        actuator_commands_msg = ActuatorCommands()
 
         actuator_commands_msg.alpha = self.alpha
         actuator_commands_msg.beta = self.beta

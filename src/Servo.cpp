@@ -27,7 +27,7 @@ extern "C"
 #include <lander_junior_ros/ActuatorCommands.h>
 
 //Services
-#include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
 
 
 class Servo
@@ -49,13 +49,19 @@ public:
         servoPos1 = 0;
         servoPos2 = 0;
 
+        // Set as disabled
+        enabled = false;
+
+        // Private Node Handle
+        ros::NodeHandle private_nh("~");
+
         // Set Servo Channel
-        if (nh->getParam("servo_channel_1",servoChannel1))
+        if (!nh->getParam("servo_channel_1",servoChannel1))
         {
             std::cout << "Failed to get Servo Channel 1" << std::endl;
             exit(1);
         }
-        if (nh->getParam("servo_channel_2",servoChannel2))
+        if (!nh->getParam("servo_channel_2",servoChannel2))
         {
             std::cout << "Failed to get Servo Channel 2" << std::endl;
             exit(1);
@@ -63,7 +69,7 @@ public:
 
         // Create Subscriber
         std::string servo_sub_name;
-        if (nh->getParam("~topics/actuator_commands",servo_sub_name))
+        if (!private_nh.getParam("topics/actuator_commands",servo_sub_name))
         {
             std::cout << "Failed to get Servo Sub Name" << std::endl;
             exit(1);
@@ -72,7 +78,7 @@ public:
 
         // Create Service Listener
         std::string servo_enable_service_name;
-        if (nh->getParam("~services/EnableServo",servo_enable_service_name))
+        if (!private_nh.getParam("services/EnableServo",servo_enable_service_name))
         {
             std::cout << "Failed to get Servo Service Name" << std::endl;
             exit(1);
@@ -81,7 +87,7 @@ public:
 
         // Create Service Listener
         std::string servo_disable_service_name;
-        if (nh->getParam("~services/DisableServo",servo_disable_service_name))
+        if (!private_nh.getParam("services/DisableServo",servo_disable_service_name))
         {
             std::cout << "Failed to get Servo Service Name" << std::endl;
             exit(1);
@@ -94,28 +100,19 @@ public:
 
     }
 
-    bool handleEnableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    bool handleEnableService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
     {
-        if(req.data)
-        {
-            res.success = enableServos();
-            res.message = "Servos Successfully Enabled";
-            return res.success;
-        }
-        res.success = false;
-        return false;
+        res.success = enableServos();
+        res.message = "Servos Successfully Enabled";
+        return res.success;
+        
     }
 
-    bool handleDisableService(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+    bool handleDisableService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
     {
-        if(req.data)
-        {
-            res.success = disableServos();
-            res.message = "Servos Successfully Disabled";
-            return res.success;
-        }
-        res.success = false;
-        return false;
+        res.success = disableServos();
+        res.message = "Servos Successfully Disabled";
+        return res.success;
         
     }
 
@@ -194,20 +191,21 @@ private:
     {
         if(enabled)
         {
-            // Servo 1
-            if(abs(servoPos1-servoCommand1) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
-            {
-                servoPos1 = servoCommand1;
-            }
-            else if(servoPos1 > servoCommand1)
-            {
-                servoPos1-=SERVO_SPEED/SERVO_FREQUENCY;
-            }
-            else
-            {
-                servoPos1+=SERVO_SPEED/SERVO_FREQUENCY;
-            }
+            // // Servo 1
+            // if(abs(servoPos1-servoCommand1) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
+            // {
+            //     servoPos1 = servoCommand1;
+            // }
+            // else if(servoPos1 > servoCommand1)
+            // {
+            //     servoPos1-=SERVO_SPEED/SERVO_FREQUENCY;
+            // }
+            // else
+            // {
+            //     servoPos1+=SERVO_SPEED/SERVO_FREQUENCY;
+            // }
 
+            servoPos1 = servoCommand1;
             if(servoPos1>SERVO_MAX_ANGLE)
             {
                 servoPos1 = SERVO_MAX_ANGLE;
@@ -217,20 +215,21 @@ private:
                 servoPos1 = -SERVO_MAX_ANGLE;
             }
 
-            // Servo 2
-            if(abs(servoPos2-servoCommand2) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
-            {
-                servoPos2 = servoCommand2;
-            }
-            else if(servoPos2 > servoCommand2)
-            {
-                servoPos2-=SERVO_SPEED/SERVO_FREQUENCY;
-            }
-            else
-            {
-                servoPos2+=SERVO_SPEED/SERVO_FREQUENCY;
-            }
+            // // Servo 2
+            // if(abs(servoPos2-servoCommand2) < SERVO_MAX_COMMAND_DIFF*SERVO_DEG_TO_VAL)
+            // {
+            //     servoPos2 = servoCommand2;
+            // }
+            // else if(servoPos2 > servoCommand2)
+            // {
+            //     servoPos2-=SERVO_SPEED/SERVO_FREQUENCY;
+            // }
+            // else
+            // {
+            //     servoPos2+=SERVO_SPEED/SERVO_FREQUENCY;
+            // }
 
+            servoPos2 = servoCommand2;
             if(servoPos2>SERVO_MAX_ANGLE)
             {
                 servoPos2 = SERVO_MAX_ANGLE;
@@ -267,6 +266,5 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
     Servo servo = Servo(&nh);
     ros::spin();
-    ros::shutdown();
     return 0;
 }

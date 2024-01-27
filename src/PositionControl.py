@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 
-from msg import PositionalState, Force
+from lander_junior_ros.msg  import PositionalState, Force
 from utils import normalize
 
 class PositionalControl:
@@ -33,10 +33,10 @@ class PositionalControl:
 
         # Reference Force Publisher:
         reference_force_topic = rospy.get_param("~topics/lander_reference_force")
-        self.reference_force_pub = rospy.Publisher(reference_force_topic,Force)
+        self.reference_force_pub = rospy.Publisher(reference_force_topic,Force,queue_size=10)
 
         # Positional Control Parameters:
-        self.FeedbackGainMatrix = np.matrix(rospy.get_param("/FeedbackGainMatrix"))
+        self.FeedbackGainMatrix = np.reshape(np.matrix(rospy.get_param("/FeedbackGainMatrix")),(3,6))
         self.L = rospy.get_param("/GimbalDistance")
 
         # Initialize Control Variables
@@ -45,9 +45,9 @@ class PositionalControl:
         self.MinThrust = rospy.get_param("/MinThrust")
 
         # Initialize Vectors
-        self.PositionalStateEstimate = np.zeros(6,1)
-        self.ReferencePositionalState = np.zeros(6,1)
-        self.FeedforwardForce = np.zeros(3,1)
+        self.PositionalStateEstimate = np.zeros((6,1))
+        self.ReferencePositionalState = np.zeros((6,1))
+        self.FeedforwardForce = np.zeros((3,1))
 
     def callback_positional_state(self,positional_state_msg):
         """
@@ -94,19 +94,19 @@ class PositionalControl:
         """
         Determines Unsaturated LQR Control Input Force
         """
-        self.Force = np.add(np.matmul(self.FeedbackGainMatrix,np.subtract(self.PositionalStateEstimate,self.ReferenceState)),self.ReferenceForce)
+        self.Force = np.ravel(np.add(np.matmul(self.FeedbackGainMatrix,np.subtract(self.PositionalStateEstimate,self.ReferencePositionalState)),self.FeedforwardForce))
 
     def Saturate(self):
         """
         Saturates LQR Control Input Force
         """
-        Fz = np.maximum(self.MinThrust,self.Force[2][0])
-        ang = np.linalg.norm(self.Force[0:2])/np.maximum(10^-6,Fz)
-        Fx = self.Force[0][0]*np.maximum(-np.tan(self.MaxPointingAngle),np.minimum(np.tan(self.MaxPointingAngle),ang))/np.maximum(10^-6,ang)
-        Fy = self.Force[1][0]*np.maximum(-np.tan(self.MaxPointingAngle),np.minimum(np.tan(self.MaxPointingAngle),ang))/np.maximum(10^-6,ang)
-        self.Force[0][0] = Fx
-        self.Force[1][0] = Fy
-        self.Force[2][0] = Fz
+        Fz = np.maximum(self.MinThrust,self.Force[2])
+        ang = np.linalg.norm(self.Force[0:2])/np.maximum(10**-6,Fz)
+        Fx = self.Force[0]*np.maximum(-np.tan(self.MaxPointingAngle),np.minimum(np.tan(self.MaxPointingAngle),ang))/np.maximum(10**-6,ang)
+        Fy = self.Force[1]*np.maximum(-np.tan(self.MaxPointingAngle),np.minimum(np.tan(self.MaxPointingAngle),ang))/np.maximum(10**-6,ang)
+        self.Force[0] = Fx
+        self.Force[1] = Fy
+        self.Force[2] = Fz
 
 if __name__ == "__main__":
     rospy.init_node("PositionalController")

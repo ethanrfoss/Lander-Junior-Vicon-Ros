@@ -3,15 +3,15 @@
 import rospy
 import numpy as np
 
-from msg import AttitudeState, PositionalState
-from geometry_msgs import TransformStamped
+from lander_junior_ros.msg  import AttitudeState, PositionalState
+from geometry_msgs.msg import TransformStamped
 
 class ViconStateEstimator:
     """
     This class estimates the state of lander junior using the vicon camera system
     """
 
-    def __init(self):
+    def __init__(self):
         # Subscribers:
         #   vicon_transform
         # Publishers:
@@ -20,15 +20,15 @@ class ViconStateEstimator:
 
         # Vicon Subscriber:
         vicon_transform_topic = rospy.get_param("~topics/vicon_transform")
-        self.vicon_transform_sub = rospy.Subscriber(vicon_transform_topic,TransformStamped,self.callback_vicon)
+        self.vicon_transform_sub = rospy.Subscriber("/vicon/robot_1/robot_1",TransformStamped,self.callback_vicon)
 
         # Attitude State Publisher
         attitude_state_topic = rospy.get_param("~topics/attitude_state")
-        self.attitude_state_pub = rospy.Publisher(attitude_state_topic,AttitudeState)
+        self.attitude_state_pub = rospy.Publisher(attitude_state_topic,AttitudeState,queue_size=10)
 
         # Position State Publisher
         positional_state_topic = rospy.get_param("~topics/positional_state")
-        self.positional_state_pub = rospy.Publisher(positional_state_topic,PositionalState)
+        self.positional_state_pub = rospy.Publisher(positional_state_topic,PositionalState,queue_size=10)
 
         # Estimate Parameters:
         self.dt = rospy.get_param("/ViconEstimatorRate")
@@ -101,5 +101,5 @@ if __name__ == "__main__":
     rate = rospy.Rate(rospy.get_param("/ViconEstimatorRate"))
 
     while not rospy.is_shutdown():
-        Estimator.publish_estimates
+        Estimator.publish_estimates()
         rate.sleep()
